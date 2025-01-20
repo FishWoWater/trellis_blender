@@ -1,4 +1,6 @@
 # TRELLIS Blender Plugin
+**Update: I have deployed a ready-to-use endpoint url, so you can download the plugin and use it directly, NO need to deploy it by yourself:) But I use 3060 GPU and the low-vram mode, it can be a bit slow.**
+
 A Blender addon that integrates [TRELLIS](https://github.com/microsoft/TRELLIS)'s 3D generation capabilities into blender. [TRELLIS](https://github.com/microsoft/TRELLIS) is SOTA text-to-3d(unreleased) and image-to-3d AIGC model.
 
 ![DemoVideo](./assets/trellis_blender_videodemo.gif)
@@ -47,7 +49,7 @@ A Blender addon that integrates [TRELLIS](https://github.com/microsoft/TRELLIS)'
   - Sample Steps (sampling steps for SLAT diffusion, by default 12)
   - CFG Strength (classifier-free-guidance, by default 7.5, higher value will better align the input image)
 - **Postprocessing Mesh Options**
-  - Simplify Ratio (# of triangles to remove, by default )
+  - Simplify Ratio (# of triangles to remove, by default 0.95)
   - Texture Size (by default 1024, can set to 2048 for higher quality, but slower)
   - Texture Bake Mode ('fast' or 'opt', 'opt' can be slow but has higher quality)
 
@@ -59,3 +61,6 @@ A Blender addon that integrates [TRELLIS](https://github.com/microsoft/TRELLIS)'
   * "No selected file": Select an input image
   * "API connection error": Check if the API server is running
   * "Processing error": Check the API server logs for details
+
+
+Any issue/discussion/contribution is welcomed!

@@ -46,7 +46,7 @@ def download_file(file_url):
 class TrellisProperties(PropertyGroup):
     api_url: StringProperty(name="Endpoint Url",
                             description="TRELLIS API URL",
-                            default="http://localhost:5000",
+                            default="http://https://j4hlyflsmzwrwkcisnow.deepln.com/",
                             maxlen=1024)
     image_path: StringProperty(name="input image path",
                                description="Path to the image file",
@@ -184,22 +184,45 @@ class TRELLIS_OT_show_preview(Operator):
             bpy.data.images.remove(bpy.data.images[image_name])
         img = bpy.data.images.load(props.image_path)
 
-        # Show image in image editor
+        # Try to find an existing image editor
+        image_editor = None
         for window in context.window_manager.windows:
             for area in window.screen.areas:
                 if area.type == 'IMAGE_EDITOR':
-                    area.spaces.active.image = img
+                    image_editor = area
                     break
-            else:
-                # If no image editor is found, create one by splitting the 3D view
+            if image_editor:
+                break
+
+        if not image_editor:
+            # If no image editor exists, create one by splitting the 3D view
+            for window in context.window_manager.windows:
                 for area in window.screen.areas:
                     if area.type == 'VIEW_3D':
-                        override = context.copy()
-                        override['area'] = area
-                        bpy.ops.screen.area_split(override, direction='VERTICAL', factor=0.3)
-                        area.type = 'IMAGE_EDITOR'
-                        area.spaces.active.image = img
+                        # Store current context
+                        temp_override = context.copy()
+                        temp_override['window'] = window
+                        temp_override['screen'] = window.screen
+                        temp_override['area'] = area
+                        temp_override['region'] = area.regions[-1]
+
+                        # Split the area
+                        with context.temp_override(**temp_override):
+                            bpy.ops.screen.area_split(direction='VERTICAL', factor=0.3)
+
+                        # The new area is the last one in the areas list
+                        new_area = window.screen.areas[-1]
+                        new_area.type = 'IMAGE_EDITOR'
+                        image_editor = new_area
                         break
+                if image_editor:
+                    break
+
+        # Set the image in the editor
+        if image_editor:
+            image_editor.spaces.active.image = img
+        else:
+            self.report({'WARNING'}, "Could not create image editor, but image was loaded")
 
         return {'FINISHED'}
 
