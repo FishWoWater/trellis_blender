@@ -79,7 +79,12 @@ class TrellisProperties(PropertyGroup):
                                     items=[('opt', "optimized", "Optimized texture baking"),
                                            ('fast', "fast", "Fast texture baking")],
                                     default='fast')
-    auto_refresh: BoolProperty(name="Auto Refresh", description="Automatically refresh request status", default=True)
+    auto_refresh: BoolProperty(
+        name="Auto Refresh",
+        description="Automatically refresh request status",
+        default=True,
+        update=lambda self, context: start_auto_refresh() if self.auto_refresh else stop_auto_refresh()
+    )
     task_id: StringProperty(name="Task ID", description="Current task ID for tracking conversion progress", default="")
     show_parameters: BoolProperty(name="Show Parameters", description="Show/hide generation parameters", default=True)
 
@@ -366,18 +371,26 @@ class TRELLIS_PT_main_panel(Panel):
 
 def auto_refresh_callback():
     try:
+        if not bpy.context or not hasattr(bpy.context.scene, 'trellis_props'):
+            return None  # Stop timer if context is invalid
+        
         if bpy.context.scene.trellis_props.auto_refresh:
-            bpy.ops.trellis.refresh_status()
+            try:
+                bpy.ops.trellis.refresh_status()
+            except Exception as e:
+                print(f"Error in auto refresh: {str(e)}")
             return 3.0  # Return time until next execution
         return None  # Stop timer if auto_refresh is disabled
-    except ReferenceError:
-        return None  # Stop timer if context is invalid
-
+    except Exception:
+        return None  # Stop timer if any error occurs
 
 def start_auto_refresh():
     if not bpy.app.timers.is_registered(auto_refresh_callback):
         bpy.app.timers.register(auto_refresh_callback, persistent=True)
 
+def stop_auto_refresh():
+    if bpy.app.timers.is_registered(auto_refresh_callback):
+        bpy.app.timers.unregister(auto_refresh_callback)
 
 classes = [
     TrellisProperties,
@@ -394,12 +407,10 @@ def register():
     for cls in classes:
         register_class(cls)
     bpy.types.Scene.trellis_props = bpy.props.PointerProperty(type=TrellisProperties)
-
-    # Start auto-refresh thread
     start_auto_refresh()
 
-
 def unregister():
+    stop_auto_refresh()
     del bpy.types.Scene.trellis_props
     for cls in reversed(classes):
         unregister_class(cls)
