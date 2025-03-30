@@ -1,31 +1,18 @@
 # TRELLIS Blender Plugin
-**Update: I have deployed a ready-to-use endpoint url, so you can download the plugin and use it directly, NO need to deploy it by yourself:) But I use 3060 GPU and the low-vram mode, it can be a bit slow.**
+**Update: support text-to-3d and add mcp integration**
 
-A Blender addon that integrates [TRELLIS](https://github.com/microsoft/TRELLIS)'s 3D generation capabilities into blender. [TRELLIS](https://github.com/microsoft/TRELLIS) is SOTA text-to-3d(unreleased) and image-to-3d AIGC model.
+A Blender addon that integrates [TRELLIS](https://github.com/microsoft/TRELLIS)'s 3D generation capabilities into blender. [TRELLIS](https://github.com/microsoft/TRELLIS) is SOTA text-to-3d and image-to-3d AIGC model.
 
 ![DemoVideo](./assets/trellis_blender_videodemo.gif)
 
 ## Core Features
-### Image-to-3D
-1. Access the panel (open 3d viewport and press n to open sidebar), find TRELLIS.
-2. Select an image as input. 
-3. Adjust generation parameters (*empirically can use fewer steps*)
-4. Click `Image to 3D`. 
-5. The plugin uploads the image to API backend. 
-6. When finished, the model url can be downloaded and imported into the scene.
 
-![DemoPic1](./assets/trellis_blender_pic1.png)
-
-### Image-Conditioned Detail Variation
-> can be used to synthesize texture for an existing 3D model in the scene 
-1. Access the panel (open 3d viewport and press n to open sidebar), find TRELLIS.
-2. Select an object in the scene, select an image as conditional input. 
-3. Adjust generation parameters (*empirically can use fewer steps*)
-4. The plugin will upload both the object and the image to the API backend. 
-5. When finished, the model url can be downloaded and imported into the scene (*with geometry unchanged and new texture*)
-
-![DemoPic2](./assets/trellis_blender_pic2.png)
-
+* Text-to-3D: text -> textured 3D mesh  
+* Image-to-3D: image -> textured 3D mesh
+* Text-conditioned Detail Variation: text + 3D mesh -> textured 3D mesh
+* Image-conditioned Detail Variation: image + 3D mesh -> textured 3D mesh
+* MCP integration: Integrates with MCP and can communicate with Cursor/Windsurf. 
+Refer to [Trellis MCP](https://github.com/FishWoWater/trellis_mcp) 
 
 
 ## Installation
@@ -34,11 +21,35 @@ A Blender addon that integrates [TRELLIS](https://github.com/microsoft/TRELLIS)'
 - Blender 3.6.0 or higher
 - Running TRELLIS API server (Refer to [my TreLLIS fork](https://github.com/FishWoWater/TRELLIS/blob/dev/README_api.md))
 
-### Steps
+### Enable the plugin
 1. Download the plugin files (clone this repo)
 2. In Blender, go to Edit > Preferences > Add-ons
 3. Click "Install" and select the `trellis_for_blender.py` file
 4. Enable the addon by checking the box next to "3D View: TRELLIS"
+
+### Native Workflow
+1. Access the panel (open 3d viewport and press n to open sidebar), find TRELLIS.
+2. (Optionally) Select an object in the scene, select an image as conditional input.
+3. Adjust generation parameters (empirically can use fewer steps)
+4. The plugin will upload both the object(if selected) and the image/text to the API backend.
+5. When finished, the model can be downloaded and imported into the scene. 
+
+You can see the historical requests in the main panel 
+
+### MCP Workflow 
+1. Access the panel (open 3d viewport and press n to open sidebar), find TRELLIS, click `Start MCP Server`
+2. Open Claude/Cursor/Windsurf, paste following configuration: 
+``` text 
+"mcpServers": {
+        "trellis": {
+            "command": "uvx",
+            "args": [
+                "trellis-mcp"
+            ]
+        }
+    }
+```
+
 
 ## Generation Parameters
 
