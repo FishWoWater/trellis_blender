@@ -50,7 +50,7 @@ def download_file(file_url):
 class TrellisProperties(PropertyGroup):
     api_url: StringProperty(name="Endpoint Url",
                             description="TRELLIS API URL",
-                            default="http://21.6.198.96:6006",
+                            default="http://localhost:6006",
                             maxlen=1024)
     server_status: StringProperty(name="Server Status", default="unknown")
     # Image-to-3D properties

@@ -3,7 +3,7 @@
 
 A Blender addon that integrates [TRELLIS](https://github.com/microsoft/TRELLIS)'s 3D generation capabilities into blender. [TRELLIS](https://github.com/microsoft/TRELLIS) is SOTA text-to-3d and image-to-3d AIGC model.
 
-![DemoVideo](./assets/trellis_blender_videodemo.gif)
+![DemoVideo](./assets/trellis_blender_demo.gif)
 
 ## Core Features
 
