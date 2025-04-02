@@ -649,7 +649,7 @@ class TRELLIS_PT_main_panel(Panel):
                     row = history_box.row(align=True)
                     # Show request type and ID
                     task_type = "TextTo3D" if req.get('task_type', '') == 'text_to_3d' else "ImageTo3D"
-                    instance_name = req.get('image_name', '') if task_type == "Image" else req.get('text', '')
+                    instance_name = req.get('image_name', '') if task_type == "ImageTo3D" else req.get('text', '')
                     display_name = f"{task_type}: {instance_name[:8]}(ID-{req['request_id'][:8]})"
                     row.label(text=display_name)
                     if 'display_time' in req:
