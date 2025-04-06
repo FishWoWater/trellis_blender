@@ -19,6 +19,7 @@ import traceback
 from bpy.props import StringProperty, BoolProperty, EnumProperty, FloatProperty, IntProperty
 from bpy.types import Operator, Panel, PropertyGroup
 from bpy.utils import register_class, unregister_class
+import time
 
 # Configuration
 CACHE_DIR = os.path.join(tempfile.gettempdir(), "trellis_cache")
@@ -669,6 +670,12 @@ class TRELLIS_PT_main_panel(Panel):
 
 
 def auto_refresh_callback():
+    # Get or initialize the attempt count and last success time
+    if not hasattr(auto_refresh_callback, 'attempt_count'):
+        auto_refresh_callback.attempt_count = 0
+    if not hasattr(auto_refresh_callback, 'last_success'):
+        auto_refresh_callback.last_success = 0
+    
     try:
         if not bpy.context or not hasattr(bpy.context.scene, 'trellis_props'):
             return None  # Stop timer if context is invalid
@@ -676,12 +683,28 @@ def auto_refresh_callback():
         if bpy.context.scene.trellis_props.auto_refresh:
             try:
                 bpy.ops.trellis.refresh_status()
+                # Reset attempt count on success
+                auto_refresh_callback.attempt_count = 0
+                auto_refresh_callback.last_success = time.time()
+                return 3.0  # Normal interval on success
             except Exception as e:
                 print(f"Error in auto refresh: {str(e)}")
-            return 3.0  # Return time until next execution
+                # Increment attempt count on failure
+                auto_refresh_callback.attempt_count += 1
+                
+                # If we haven't had success for over 5 minutes, stop retrying
+                if time.time() - auto_refresh_callback.last_success > 300:  # 5 minutes
+                    print("Auto-refresh stopped: Server unavailable for 5 minutes")
+                    return None
+                
+                # Exponential backoff: 3s, 6s, 12s, 24s
+                next_interval = min(3.0 * (2 ** (auto_refresh_callback.attempt_count - 1)), 24.0)
+                return next_interval
+                
         return None  # Stop timer if auto_refresh is disabled
     except Exception:
         return None  # Stop timer if any error occurs
+
 
 def start_auto_refresh():
     if not bpy.app.timers.is_registered(auto_refresh_callback):
@@ -1800,7 +1823,9 @@ class BlenderMCPServer:
                     # Add normal map node
                     normal_map = nodes.new(type="ShaderNodeNormalMap")
                     normal_map.location = (x_pos + 200, y_pos)
-                    links.new(tex_node.outputs["Color"], normal_map.inputs["Color"])
+                    links.new(
+                        tex_node.outputs["Color"], normal_map.inputs["Color"]
+                    )
                     links.new(normal_map.outputs["Normal"], principled.inputs["Normal"])
                 elif map_type.lower() in ["displacement", "disp", "height"]:
                     # Add displacement node
@@ -2129,12 +2154,28 @@ def register():
     
     # Check server status on startup
     def check_server_on_startup():
+        # Get the current attempt count, initialize if not exists
+        if not hasattr(check_server_on_startup, 'attempt_count'):
+            check_server_on_startup.attempt_count = 0
+        
         try:
             if hasattr(bpy.context.scene, 'trellis_props'):
                 bpy.ops.trellis.check_server()
+                # If we reach here without exception, server is available
+                return None
         except Exception:
             pass
-        return None
+
+        # Increment attempt count
+        check_server_on_startup.attempt_count += 1
+        
+        # Stop after 5 attempts
+        if check_server_on_startup.attempt_count >= 5:
+            return None
+            
+        # Exponential backoff: 1s, 2s, 4s, 8s, 16s
+        next_interval = 2 ** (check_server_on_startup.attempt_count - 1)
+        return next_interval
     
     # Schedule server check after a short delay to ensure the UI is ready
     bpy.app.timers.register(check_server_on_startup, first_interval=1.0)
