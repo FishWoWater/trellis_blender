@@ -1,3 +1,5 @@
+[![MseeP.ai Security Assessment Badge](https://mseep.net/pr/fishwowater-trellis-blender-badge.png)](https://mseep.ai/app/fishwowater-trellis-blender)
+
 # TRELLIS Blender Plugin
 **Update: support text-to-3d and add mcp integration**
 
