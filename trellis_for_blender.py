@@ -1,10 +1,10 @@
 bl_info = {
     "name": "TRELLIS 3D Generation",
     "author": "FishWoWater",
-    "version": (0, 2),
+    "version": (0, 3),
     "blender": (3, 6, 0),
     "location": "View3D > Sidebar > TRELLIS",
-    "description": "3D Mesh Generation with TRELLIS (Image-to-3D and Text-to-3D)",
+    "description": "3D Mesh Generation with TRELLIS & TRELLIS2 (Image-to-3D and Text-to-3D)",
     "category": "3D View",
 }
 
@@ -16,6 +16,7 @@ import base64
 import socket
 import json
 import traceback 
+import random
 from bpy.props import StringProperty, BoolProperty, EnumProperty, FloatProperty, IntProperty
 from bpy.types import Operator, Panel, PropertyGroup
 from bpy.utils import register_class, unregister_class
@@ -54,6 +55,23 @@ class TrellisProperties(PropertyGroup):
                             default="http://localhost:6006",
                             maxlen=1024)
     server_status: StringProperty(name="Server Status", default="unknown")
+
+    trellis_version: EnumProperty(
+        name="TRELLIS Version",
+        description="Select TRELLIS API Version",
+        items=[
+            ('v1', "TRELLIS v1", "Use TRELLIS v1 API"),
+            ('v2', "TRELLIS v2", "Use TRELLIS v2 API (Better quality)")
+        ],
+        default='v1'
+    )
+    # v2 specific properties
+    seed: IntProperty(name="Seed", default=42)
+    randomize_seed: BoolProperty(name="Randomize Seed", default=True)
+    image_width: IntProperty(name="Image Width", default=1024, description="For v2 Text-to-3D")
+    image_height: IntProperty(name="Image Height", default=1024, description="For v2 Text-to-3D")
+    num_inference_steps: IntProperty(name="Inference Steps", default=9, description="For v2 Text-to-3D")
+
     # Image-to-3D properties
     image_path: StringProperty(name="input image path",
                                description="Path to the image file",
@@ -131,37 +149,57 @@ class TRELLIS_OT_convert_image(Operator):
             return {'CANCELLED'}
 
         try:
-            with open(props.image_path, 'rb') as f:
-                # Read and encode the image file as base64
-                image_data = base64.b64encode(f.read()).decode('utf-8')
-                
-                data = {
-                    'image_data': image_data,
-                    'image_name': os.path.splitext(os.path.basename(props.image_path))[0],
-                    'sparse_structure_sample_steps': props.sparse_structure_sample_steps,
-                    'sparse_structure_cfg_strength': props.sparse_structure_cfg_strength,
-                    'slat_sample_steps': props.slat_sample_steps,
-                    'slat_cfg_strength': props.slat_cfg_strength,
-                    'simplify_ratio': props.simplify_ratio,
-                    'texture_size': props.texture_size,
-                    'texture_bake_mode': props.texture_bake_mode
-                }
-                
-                headers = {'Content-Type': 'application/json'}
-                response = requests.post(f"{props.api_url}/image_to_3d", json=data, headers=headers, timeout=2)
-                response.raise_for_status()
-                result = response.json()
+            if props.trellis_version == 'v1':
+                with open(props.image_path, 'rb') as f:
+                    # Read and encode the image file as base64
+                    image_data = base64.b64encode(f.read()).decode('utf-8')
+                    
+                    data = {
+                        'image_data': image_data,
+                        'image_name': os.path.splitext(os.path.basename(props.image_path))[0],
+                        'ss_sample_steps': props.sparse_structure_sample_steps,
+                        'ss_cfg_strength': props.sparse_structure_cfg_strength,
+                        'slat_sample_steps': props.slat_sample_steps,
+                        'slat_cfg_strength': props.slat_cfg_strength,
+                        'simplify_ratio': props.simplify_ratio,
+                        'texture_size': props.texture_size,
+                        'texture_bake_mode': props.texture_bake_mode
+                    }
+                    
+                    headers = {'Content-Type': 'application/json'}
+                    response = requests.post(f"{props.api_url}/image_to_3d", json=data, headers=headers, timeout=10)
+            
+            elif props.trellis_version == 'v2':
+                # Handle seed randomization
+                seed = props.seed
+                if props.randomize_seed:
+                    seed = random.randint(0, 2147483647)
+                    props.seed = seed
 
-                if result['status'] == 'queued':
-                    self.report({'INFO'}, f"Request queued with ID: {result['request_id']}")
-                    # Force an immediate refresh and update the UI
-                    bpy.ops.trellis.refresh_status()
-                    # TODO: CHECK THIS
-                    # Force the panel to redraw
-                    for area in context.screen.areas:
-                        if area.type == 'VIEW_3D':
-                            area.tag_redraw()
-                    return {'FINISHED'}
+                with open(props.image_path, 'rb') as f:
+                    files = {'image': f}
+                    data = {
+                        'seed': seed,
+                        'randomize_seed': props.randomize_seed,
+                        'ss_sample_steps': props.sparse_structure_sample_steps,
+                        'ss_cfg_strength': props.sparse_structure_cfg_strength,
+                        'slat_sample_steps': props.slat_sample_steps,
+                        'slat_cfg_strength': props.slat_cfg_strength,
+                    }
+                    response = requests.post(f"{props.api_url}/image_to_3d", files=files, data=data, timeout=60)
+
+            response.raise_for_status()
+            result = response.json()
+
+            if result.get('status') == 'queued':
+                self.report({'INFO'}, f"Request queued with ID: {result.get('request_id')}")
+                # Force an immediate refresh and update the UI
+                bpy.ops.trellis.refresh_status()
+                # Force the panel to redraw
+                for area in context.screen.areas:
+                    if area.type == 'VIEW_3D':
+                        area.tag_redraw()
+                return {'FINISHED'}
 
         except Exception as e:
             self.report({'ERROR'}, f"Error: {str(e)}")
@@ -236,25 +274,48 @@ class TRELLIS_OT_convert_text(Operator):
             return {'CANCELLED'}
 
         try:
-            data = {
-                'text': props.prompt_text,
-                'negative_text': props.negative_prompt_text,
-                'ss_sample_steps': props.sparse_structure_sample_steps,
-                'ss_cfg_strength': props.sparse_structure_cfg_strength,
-                'slat_sample_steps': props.slat_sample_steps,
-                'slat_cfg_strength': props.slat_cfg_strength,
-                'simplify_ratio': props.simplify_ratio,
-                'texture_size': props.texture_size,
-                'texture_bake_mode': props.texture_bake_mode
-            }
-            
-            headers = {'Content-Type': 'application/json'}
-            response = requests.post(f"{props.api_url}/text_to_3d", json=data, headers=headers)
+            if props.trellis_version == 'v1':
+                data = {
+                    'text': props.prompt_text,
+                    'negative_text': props.negative_prompt_text,
+                    'ss_sample_steps': props.sparse_structure_sample_steps,
+                    'ss_cfg_strength': props.sparse_structure_cfg_strength,
+                    'slat_sample_steps': props.slat_sample_steps,
+                    'slat_cfg_strength': props.slat_cfg_strength,
+                    'simplify_ratio': props.simplify_ratio,
+                    'texture_size': props.texture_size,
+                    'texture_bake_mode': props.texture_bake_mode
+                }
+                headers = {'Content-Type': 'application/json'}
+                response = requests.post(f"{props.api_url}/text_to_3d", json=data, headers=headers)
+
+            elif props.trellis_version == 'v2':
+                # Handle seed randomization
+                seed = props.seed
+                if props.randomize_seed:
+                    seed = random.randint(0, 2147483647)
+                    props.seed = seed
+
+                data = {
+                    'text': props.prompt_text,
+                    'negative_text': props.negative_prompt_text,
+                    'seed': seed,
+                    'randomize_seed': props.randomize_seed,
+                    'image_width': props.image_width,
+                    'image_height': props.image_height,
+                    'num_inference_steps': props.num_inference_steps,
+                    'ss_sample_steps': props.sparse_structure_sample_steps,
+                    'ss_cfg_strength': props.sparse_structure_cfg_strength,
+                    'slat_sample_steps': props.slat_sample_steps,
+                    'slat_cfg_strength': props.slat_cfg_strength,
+                }
+                response = requests.post(f"{props.api_url}/text_to_3d", data=data, timeout=10)
+
             response.raise_for_status()
             result = response.json()
 
-            if result['status'] == 'queued':
-                self.report({'INFO'}, f"Request queued with ID: {result['request_id']}")
+            if result.get('status') == 'queued':
+                self.report({'INFO'}, f"Request queued with ID: {result.get('request_id')}")
                 # Force an immediate refresh and update the UI
                 bpy.ops.trellis.refresh_status()
                 # Force the panel to redraw
@@ -519,6 +580,8 @@ class TRELLIS_PT_main_panel(Panel):
         row = box.row()
         row.prop(props, "api_url")
         row = box.row()
+        row.prop(props, "trellis_version")
+        row = box.row()
         row.operator("trellis.check_server", text="Check Connection", icon='FILE_REFRESH')
         
         # MCP Server section
@@ -582,7 +645,8 @@ class TRELLIS_PT_main_panel(Panel):
 
         # Convert buttons
         layout.operator("trellis.convert_image", text="Image to 3D", icon='MESH_CUBE')
-        layout.operator("trellis.convert_mesh", text="Image-Conditioned Detail Variation", icon='MESH_CUBE')
+        if props.trellis_version == 'v1':
+            layout.operator("trellis.convert_mesh", text="Image-Conditioned Detail Variation", icon='MESH_CUBE')
     
     def draw_text_to_3d(self, context, layout):
         props = context.scene.trellis_props
@@ -604,7 +668,8 @@ class TRELLIS_PT_main_panel(Panel):
         
         # Convert buttons
         layout.operator("trellis.convert_text", text="Text to 3D", icon='MESH_CUBE')
-        layout.operator("trellis.convert_text_mesh", text="Text-Conditioned Detail Variation", icon='MESH_CUBE')
+        if props.trellis_version == 'v1':
+            layout.operator("trellis.convert_text_mesh", text="Text-Conditioned Detail Variation", icon='MESH_CUBE')
     
     def draw_parameters(self, context, layout):
         props = context.scene.trellis_props
@@ -619,13 +684,25 @@ class TRELLIS_PT_main_panel(Panel):
 
         if props.show_parameters:
             col = params_box.column(align=True)
-            col.prop(props, "sparse_structure_sample_steps")
-            col.prop(props, "sparse_structure_cfg_strength")
-            col.prop(props, "slat_sample_steps")
-            col.prop(props, "slat_cfg_strength")
-            col.prop(props, "simplify_ratio")
-            col.prop(props, "texture_size")
-            col.prop(props, "texture_bake_mode")
+            if props.trellis_version == 'v1':
+                col.prop(props, "sparse_structure_sample_steps")
+                col.prop(props, "sparse_structure_cfg_strength")
+                col.prop(props, "slat_sample_steps")
+                col.prop(props, "slat_cfg_strength")
+                col.prop(props, "simplify_ratio")
+                col.prop(props, "texture_size")
+                col.prop(props, "texture_bake_mode")
+            elif props.trellis_version == 'v2':
+                col.prop(props, "seed")
+                col.prop(props, "randomize_seed")
+                col.prop(props, "sparse_structure_sample_steps")
+                col.prop(props, "sparse_structure_cfg_strength")
+                col.prop(props, "slat_sample_steps")
+                col.prop(props, "slat_cfg_strength")
+                if props.active_tab == 'TEXT_TO_3D':
+                    col.prop(props, "image_width")
+                    col.prop(props, "image_height")
+                    col.prop(props, "num_inference_steps")
     
     def draw_history(self, context, layout):
         props = context.scene.trellis_props

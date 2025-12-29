@@ -1,25 +1,34 @@
-# TRELLIS Blender Plugin
-**Update: support text-to-3d and add mcp integration**
+# TRELLIS & TRELLIS.2 Blender Addon
+**Update: add support for TRELLIS.2**
 
-A Blender addon that integrates [TRELLIS](https://github.com/microsoft/TRELLIS)'s 3D generation capabilities into blender. [TRELLIS](https://github.com/microsoft/TRELLIS) is SOTA text-to-3d and image-to-3d AIGC model.
+A Blender addon that integrates the 3D generation capabilities of [TRELLIS](https://github.com/microsoft/TRELLIS) and [TRELLIS2](https://github.com/microsoft/TRELLIS.2) into blender.
 
 ![DemoVideo](./assets/trellis_blender_demo.gif)
 
-## Core Features
+## Features
 
-* Text-to-3D: text -> textured 3D mesh  
-* Image-to-3D: image -> textured 3D mesh
-* Text-conditioned Detail Variation: text + 3D mesh -> textured 3D mesh
-* Image-conditioned Detail Variation: image + 3D mesh -> textured 3D mesh
-* MCP integration: Integrates with MCP and can communicate with Cursor/Windsurf. 
-Refer to [Trellis MCP](https://github.com/FishWoWater/trellis_mcp) 
+##### TRELLIS 
+* Text-to-3D: native generation of textured 3D mesh from text  
+* Image-to-3D: native generation of textured 3D mesh from a single RGB image
+* Text-conditioned Detail Variation: generating textures for a mesh given text
+* Image-conditioned Detail Variation: generating textures for a mesh given a single RGB image
+
+##### TRELLIS2
+* Text-to-3D: generation of textured 3D mesh from text (t2i using z-image-turbo, and then image2mesh using trellis.2) 
+* Image-to-3D: native generation of textured 3D mesh from a single RGB image (native trellis.2)
+
+##### MCP integration
+Integrates with MCP and can communicate with Cursor/Windsurf. Refer to [Trellis MCP](https://github.com/FishWoWater/trellis_mcp) 
 
 
 ## Installation
 
 ### Requirements
 - Blender 3.6.0 or higher
-- Running TRELLIS API server (Refer to [my TreLLIS fork](https://github.com/FishWoWater/TRELLIS/blob/dev/README_api.md))
+- [**Option1**] Running TRELLIS API server (Refer to [my TreLLIS fork](https://github.com/FishWoWater/TRELLIS/blob/dev/README_api.md))
+- [**Option2**] Running TRELLIS.2 API server (Refer to [my TreLLIS.2 fork](https://github.com/FishWoWater/TRELLIS.2/README_api.md))
+
+You can also start both servers and switch the backend in the blender addon.
 
 ### Enable the plugin
 1. Download the plugin files (clone this repo)
@@ -63,15 +72,6 @@ You can see the historical requests in the main panel
   - Simplify Ratio (# of triangles to remove, by default 0.95)
   - Texture Size (by default 1024, can set to 2048 for higher quality, but slower)
   - Texture Bake Mode ('fast' or 'opt', 'opt' can be slow but has higher quality)
-
-
-## Features
-- Asynchronous request processing
-- Real-time status updates
-- Error handing
-  * "No selected file": Select an input image
-  * "API connection error": Check if the API server is running
-  * "Processing error": Check the API server logs for details
 
 
 Any issue/discussion/contribution is welcomed!
